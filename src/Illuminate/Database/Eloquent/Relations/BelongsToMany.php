@@ -57,14 +57,14 @@ class BelongsToMany extends Relation
     /**
      * The custom pivot table column for the created_at timestamp.
      *
-     * @var string
+     * @var array
      */
     protected $pivotCreatedAt;
 
     /**
      * The custom pivot table column for the updated_at timestamp.
      *
-     * @var string
+     * @var array
      */
     protected $pivotUpdatedAt;
 
@@ -193,14 +193,13 @@ class BelongsToMany extends Relation
      * @param  int  $perPage
      * @param  array  $columns
      * @param  string  $pageName
-     * @param  int|null  $page
      * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
      */
-    public function paginate($perPage = null, $columns = ['*'], $pageName = 'page', $page = null)
+    public function paginate($perPage = null, $columns = ['*'], $pageName = 'page')
     {
         $this->query->addSelect($this->getSelectColumns($columns));
 
-        $paginator = $this->query->paginate($perPage, $columns, $pageName, $page);
+        $paginator = $this->query->paginate($perPage, $columns, $pageName);
 
         $this->hydratePivotRelation($paginator->items());
 
@@ -212,14 +211,13 @@ class BelongsToMany extends Relation
      *
      * @param  int  $perPage
      * @param  array  $columns
-     * @param  string  $pageName
      * @return \Illuminate\Contracts\Pagination\Paginator
      */
-    public function simplePaginate($perPage = null, $columns = ['*'], $pageName = 'page')
+    public function simplePaginate($perPage = null, $columns = ['*'])
     {
         $this->query->addSelect($this->getSelectColumns($columns));
 
-        $paginator = $this->query->simplePaginate($perPage, $columns, $pageName);
+        $paginator = $this->query->simplePaginate($perPage, $columns);
 
         $this->hydratePivotRelation($paginator->items());
 
@@ -231,16 +229,16 @@ class BelongsToMany extends Relation
      *
      * @param  int  $count
      * @param  callable  $callback
-     * @return bool
+     * @return void
      */
     public function chunk($count, callable $callback)
     {
         $this->query->addSelect($this->getSelectColumns());
 
-        return $this->query->chunk($count, function ($results) use ($callback) {
+        $this->query->chunk($count, function ($results) use ($callback) {
             $this->hydratePivotRelation($results->all());
 
-            return $callback($results);
+            call_user_func($callback, $results);
         });
     }
 
@@ -329,13 +327,11 @@ class BelongsToMany extends Relation
     {
         $query->select(new Expression('count(*)'));
 
-        $query->from($this->related->getTable().' as '.$hash = $this->getRelationCountHash());
+        $query->from($this->table.' as '.$hash = $this->getRelationCountHash());
 
-        $this->related->setTable($hash);
+        $key = $this->wrap($this->getQualifiedParentKeyName());
 
-        $this->setJoin($query);
-
-        return parent::getRelationCountQuery($query, $parent);
+        return $query->where($hash.'.'.$this->foreignKey, '=', new Expression($key));
     }
 
     /**
@@ -540,7 +536,7 @@ class BelongsToMany extends Relation
 
         $fullKey = $related->getQualifiedKeyName();
 
-        return $this->getQuery()->select($fullKey)->lists($related->getKeyName());
+        return $this->getQuery()->select($fullKey)->pluck($related->getKeyName());
     }
 
     /**
@@ -770,7 +766,7 @@ class BelongsToMany extends Relation
         // First we need to attach any of the associated models that are not currently
         // in this joining table. We'll spin through the given IDs, checking to see
         // if they exist in the array of current ones, and if not we will insert.
-        $current = $this->newPivotQuery()->lists($this->otherKey);
+        $current = $this->newPivotQuery()->pluck($this->otherKey);
 
         $records = $this->formatSyncList($ids);
 

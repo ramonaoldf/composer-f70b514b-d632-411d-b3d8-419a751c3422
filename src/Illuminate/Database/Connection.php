@@ -12,8 +12,8 @@ use DateTimeInterface;
 use Illuminate\Support\Arr;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Contracts\Events\Dispatcher;
-use Doctrine\DBAL\Connection as DoctrineConnection;
 use Illuminate\Database\Query\Processors\Processor;
+use Doctrine\DBAL\Connection as DoctrineConnection;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Schema\Builder as SchemaBuilder;
 use Illuminate\Database\Query\Grammars\Grammar as QueryGrammar;
@@ -498,29 +498,18 @@ class Connection implements ConnectionInterface
      * Start a new database transaction.
      *
      * @return void
-     *
-     * @throws \Exception
      */
     public function beginTransaction()
     {
-        if ($this->transactions == 0) {
-            try {
-                $this->pdo->beginTransaction();
-            } catch (Exception $e) {
-                if ($this->causedByLostConnection($e)) {
-                    $this->reconnect();
-                    $this->pdo->beginTransaction();
-                } else {
-                    throw $e;
-                }
-            }
-        } elseif ($this->transactions >= 1 && $this->queryGrammar->supportsSavepoints()) {
+        ++$this->transactions;
+
+        if ($this->transactions == 1) {
+            $this->pdo->beginTransaction();
+        } elseif ($this->transactions > 1 && $this->queryGrammar->supportsSavepoints()) {
             $this->pdo->exec(
-                $this->queryGrammar->compileSavepoint('trans'.($this->transactions + 1))
+                $this->queryGrammar->compileSavepoint('trans'.$this->transactions)
             );
         }
-
-        ++$this->transactions;
 
         $this->fireConnectionEvent('beganTransaction');
     }
@@ -621,10 +610,6 @@ class Connection implements ConnectionInterface
         try {
             $result = $this->runQueryCallback($query, $bindings, $callback);
         } catch (QueryException $e) {
-            if ($this->transactions >= 1) {
-                throw $e;
-            }
-
             $result = $this->tryAgainIfCausedByLostConnection(
                 $e, $query, $bindings, $callback
             );
@@ -742,14 +727,14 @@ class Connection implements ConnectionInterface
     public function logQuery($query, $bindings, $time = null)
     {
         if (isset($this->events)) {
-            $this->events->fire('illuminate.query', [$query, $bindings, $time, $this->getName()]);
+            $this->events->fire(new Events\QueryExecuted(
+                $query, $bindings, $time, $this
+            ));
         }
 
-        if (! $this->loggingQueries) {
-            return;
+        if ($this->loggingQueries) {
+            $this->queryLog[] = compact('query', 'bindings', 'time');
         }
-
-        $this->queryLog[] = compact('query', 'bindings', 'time');
     }
 
     /**
@@ -761,7 +746,7 @@ class Connection implements ConnectionInterface
     public function listen(Closure $callback)
     {
         if (isset($this->events)) {
-            $this->events->listen('illuminate.query', $callback);
+            $this->events->listen(Events\QueryExecuted::class, $callback);
         }
     }
 
@@ -773,8 +758,17 @@ class Connection implements ConnectionInterface
      */
     protected function fireConnectionEvent($event)
     {
-        if (isset($this->events)) {
-            $this->events->fire('connection.'.$this->getName().'.'.$event, $this);
+        if (! isset($this->events)) {
+            return;
+        }
+
+        switch ($event) {
+            case 'beganTransaction':
+                return $this->events->fire(new Events\TransactionBeginning($this));
+            case 'committed':
+                return $this->events->fire(new Events\TransactionCommitted($this));
+            case 'rollingBack':
+                return $this->events->fire(new Events\TransactionRolledBack($this));
         }
     }
 
@@ -870,8 +864,6 @@ class Connection implements ConnectionInterface
      *
      * @param  \PDO|null  $pdo
      * @return $this
-     *
-     * @throws \RuntimeException
      */
     public function setPdo($pdo)
     {

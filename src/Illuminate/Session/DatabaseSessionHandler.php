@@ -2,10 +2,10 @@
 
 namespace Illuminate\Session;
 
-use Carbon\Carbon;
 use SessionHandlerInterface;
-use Illuminate\Database\QueryException;
+use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Contracts\Container\Container;
 
 class DatabaseSessionHandler implements SessionHandlerInterface, ExistenceAwareInterface
 {
@@ -24,11 +24,11 @@ class DatabaseSessionHandler implements SessionHandlerInterface, ExistenceAwareI
     protected $table;
 
     /**
-     * The number of minutes the session should be valid.
+     * The container instance.
      *
-     * @var int
+     * @var \Illuminate\Contracts\Container\Container
      */
-    protected $minutes;
+    protected $container;
 
     /**
      * The existence state of the session.
@@ -42,13 +42,13 @@ class DatabaseSessionHandler implements SessionHandlerInterface, ExistenceAwareI
      *
      * @param  \Illuminate\Database\ConnectionInterface  $connection
      * @param  string  $table
-     * @param  int  $minutes
+     * @param  \Illuminate\Contracts\Container\Container|null  $container
      * @return void
      */
-    public function __construct(ConnectionInterface $connection, $table, $minutes)
+    public function __construct(ConnectionInterface $connection, $table, Container $container = null)
     {
         $this->table = $table;
-        $this->minutes = $minutes;
+        $this->container = $container;
         $this->connection = $connection;
     }
 
@@ -75,14 +75,6 @@ class DatabaseSessionHandler implements SessionHandlerInterface, ExistenceAwareI
     {
         $session = (object) $this->getQuery()->find($sessionId);
 
-        if (isset($session->last_activity)) {
-            if ($session->last_activity < Carbon::now()->subMinutes($this->minutes)->getTimestamp()) {
-                $this->exists = true;
-
-                return;
-            }
-        }
-
         if (isset($session->payload)) {
             $this->exists = true;
 
@@ -95,45 +87,46 @@ class DatabaseSessionHandler implements SessionHandlerInterface, ExistenceAwareI
      */
     public function write($sessionId, $data)
     {
+        $payload = $this->getDefaultPayload($data);
+
         if ($this->exists) {
-            $this->performUpdate($sessionId, $data);
+            $this->getQuery()->where('id', $sessionId)->update($payload);
         } else {
-            $this->performInsert($sessionId, $data);
+            $payload['id'] = $sessionId;
+
+            $this->getQuery()->insert($payload);
         }
 
         $this->exists = true;
     }
 
     /**
-     * Perform an insert operation on the session ID.
+     * Get the default paylaod for the session.
      *
-     * @param  string  $sessionId
      * @param  string  $data
-     * @return void
+     * @return array
      */
-    protected function performInsert($sessionId, $data)
+    protected function getDefaultPayload($data)
     {
-        try {
-            return $this->getQuery()->insert([
-                'id' => $sessionId, 'payload' => base64_encode($data), 'last_activity' => time(),
-            ]);
-        } catch (QueryException $e) {
-            $this->performUpdate($sessionId, $data);
-        }
-    }
+        $payload = ['payload' => base64_encode($data), 'last_activity' => time()];
 
-    /**
-     * Perform an update operation on the session ID.
-     *
-     * @param  string  $sessionId
-     * @param  string  $data
-     * @return int
-     */
-    protected function performUpdate($sessionId, $data)
-    {
-        return $this->getQuery()->where('id', $sessionId)->update([
-            'payload' => base64_encode($data), 'last_activity' => time(),
-        ]);
+        if (! $container = $this->container) {
+            return $payload;
+        }
+
+        if ($container->bound(Guard::class)) {
+            $payload['user_id'] = $container->make(Guard::class)->id();
+        }
+
+        if ($container->bound('request')) {
+            $payload['ip_address'] = $container->make('request')->ip();
+
+            $payload['user_agent'] = substr(
+                (string) $container->make('request')->header('User-Agent'), 0, 500
+            );
+        }
+
+        return $payload;
     }
 
     /**

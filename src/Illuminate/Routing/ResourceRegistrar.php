@@ -155,6 +155,7 @@ class ResourceRegistrar
         // entire string for the resource URI that contains all nested resources.
         return implode('/', array_map(function ($s) {
             return $s.'/{'.$this->getResourceWildcard($s).'}';
+
         }, $segments));
     }
 
@@ -331,42 +332,11 @@ class ResourceRegistrar
      */
     protected function addResourceUpdate($name, $base, $controller, $options)
     {
-        $this->addPutResourceUpdate($name, $base, $controller, $options);
-
-        return $this->addPatchResourceUpdate($name, $base, $controller);
-    }
-
-    /**
-     * Add the update method for a resourceful route.
-     *
-     * @param  string  $name
-     * @param  string  $base
-     * @param  string  $controller
-     * @param  array   $options
-     * @return \Illuminate\Routing\Route
-     */
-    protected function addPutResourceUpdate($name, $base, $controller, $options)
-    {
         $uri = $this->getResourceUri($name).'/{'.$base.'}';
 
         $action = $this->getResourceAction($name, $controller, 'update', $options);
 
-        return $this->router->put($uri, $action);
-    }
-
-    /**
-     * Add the update method for a resourceful route.
-     *
-     * @param  string  $name
-     * @param  string  $base
-     * @param  string  $controller
-     * @return void
-     */
-    protected function addPatchResourceUpdate($name, $base, $controller)
-    {
-        $uri = $this->getResourceUri($name).'/{'.$base.'}';
-
-        $this->router->patch($uri, $controller.'@update');
+        return $this->router->match(['PUT', 'PATCH'], $uri, $action);
     }
 
     /**
