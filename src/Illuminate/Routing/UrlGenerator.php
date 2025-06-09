@@ -21,7 +21,7 @@ class UrlGenerator implements UrlGeneratorContract
     /**
      * The route collection.
      *
-     * @var \Illuminate\Routing\RouteCollection
+     * @var \Illuminate\Routing\RouteCollectionInterface
      */
     protected $routes;
 
@@ -311,7 +311,7 @@ class UrlGenerator implements UrlGeneratorContract
      * Create a signed route URL for a named route.
      *
      * @param  string  $name
-     * @param  mixed  $parameters
+     * @param  array  $parameters
      * @param  \DateTimeInterface|\DateInterval|int|null  $expiration
      * @param  bool  $absolute
      * @return string
@@ -320,9 +320,13 @@ class UrlGenerator implements UrlGeneratorContract
      */
     public function signedRoute($name, $parameters = [], $expiration = null, $absolute = true)
     {
-        $this->ensureSignedRouteParametersAreNotReserved(
-            $parameters = $this->formatParameters($parameters)
-        );
+        $parameters = $this->formatParameters($parameters);
+
+        if (array_key_exists('signature', $parameters)) {
+            throw new InvalidArgumentException(
+                '"Signature" is a reserved parameter when generating signed routes. Please rename your route parameter.'
+            );
+        }
 
         if ($expiration) {
             $parameters = $parameters + ['expires' => $this->availableAt($expiration)];
@@ -335,27 +339,6 @@ class UrlGenerator implements UrlGeneratorContract
         return $this->route($name, $parameters + [
             'signature' => hash_hmac('sha256', $this->route($name, $parameters, $absolute), $key),
         ], $absolute);
-    }
-
-    /**
-     * Ensure the given signed route parameters are not reserved.
-     *
-     * @param  mixed  $parameters
-     * @return void
-     */
-    protected function ensureSignedRouteParametersAreNotReserved($parameters)
-    {
-        if (array_key_exists('signature', $parameters)) {
-            throw new InvalidArgumentException(
-                '"Signature" is a reserved parameter when generating signed routes. Please rename your route parameter.'
-            );
-        }
-
-        if (array_key_exists('expires', $parameters)) {
-            throw new InvalidArgumentException(
-                '"Expires" is a reserved parameter when generating signed routes. Please rename your route parameter.'
-            );
-        }
     }
 
     /**
@@ -449,6 +432,12 @@ class UrlGenerator implements UrlGeneratorContract
      */
     public function toRoute($route, $parameters, $absolute)
     {
+        $parameters = collect(Arr::wrap($parameters))->map(function ($value, $key) use ($route) {
+            return $value instanceof UrlRoutable && $route->bindingFieldFor($key)
+                    ? $value->{$route->bindingFieldFor($key)}
+                    : $value;
+        })->all();
+
         return $this->routeUrl()->to(
             $route, $this->formatParameters($parameters), $absolute
         );
@@ -716,10 +705,10 @@ class UrlGenerator implements UrlGeneratorContract
     /**
      * Set the route collection.
      *
-     * @param  \Illuminate\Routing\RouteCollection  $routes
+     * @param  \Illuminate\Routing\RouteCollectionInterface  $routes
      * @return $this
      */
-    public function setRoutes(RouteCollection $routes)
+    public function setRoutes(RouteCollectionInterface $routes)
     {
         $this->routes = $routes;
 

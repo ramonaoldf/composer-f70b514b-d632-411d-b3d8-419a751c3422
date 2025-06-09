@@ -5,6 +5,8 @@ namespace Illuminate\Foundation;
 use Closure;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application as ApplicationContract;
+use Illuminate\Contracts\Foundation\CachesConfiguration;
+use Illuminate\Contracts\Foundation\CachesRoutes;
 use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
 use Illuminate\Events\EventServiceProvider;
 use Illuminate\Filesystem\Filesystem;
@@ -24,14 +26,14 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 
-class Application extends Container implements ApplicationContract, HttpKernelInterface
+class Application extends Container implements ApplicationContract, CachesConfiguration, CachesRoutes, HttpKernelInterface
 {
     /**
      * The Laravel framework version.
      *
      * @var string
      */
-    const VERSION = '6.20.45';
+    const VERSION = '7.0.0';
 
     /**
      * The base path for the Laravel installation.
@@ -230,7 +232,7 @@ class Application extends Container implements ApplicationContract, HttpKernelIn
      */
     public function afterLoadingEnvironment(Closure $callback)
     {
-        $this->afterBootstrapping(
+        return $this->afterBootstrapping(
             LoadEnvironmentVariables::class, $callback
         );
     }
@@ -333,7 +335,7 @@ class Application extends Container implements ApplicationContract, HttpKernelIn
     /**
      * Get the base path of the Laravel installation.
      *
-     * @param  string  $path
+     * @param  string  $path Optionally, a path to append to the base path
      * @return string
      */
     public function basePath($path = '')
@@ -344,7 +346,7 @@ class Application extends Container implements ApplicationContract, HttpKernelIn
     /**
      * Get the path to the bootstrap directory.
      *
-     * @param  string  $path
+     * @param  string  $path Optionally, a path to append to the bootstrap path
      * @return string
      */
     public function bootstrapPath($path = '')
@@ -355,7 +357,7 @@ class Application extends Container implements ApplicationContract, HttpKernelIn
     /**
      * Get the path to the application configuration files.
      *
-     * @param  string  $path
+     * @param  string  $path Optionally, a path to append to the config path
      * @return string
      */
     public function configPath($path = '')
@@ -366,7 +368,7 @@ class Application extends Container implements ApplicationContract, HttpKernelIn
     /**
      * Get the path to the database directory.
      *
-     * @param  string  $path
+     * @param  string  $path Optionally, a path to append to the database path
      * @return string
      */
     public function databasePath($path = '')
@@ -546,9 +548,7 @@ class Application extends Container implements ApplicationContract, HttpKernelIn
      */
     public function detectEnvironment(Closure $callback)
     {
-        $args = $this->runningInConsole() && $_SERVER['argv']
-            ? $_SERVER['argv']
-            : null;
+        $args = $_SERVER['argv'] ?? null;
 
         return $this['env'] = (new EnvironmentDetector)->detect($callback, $args);
     }
@@ -974,7 +974,7 @@ class Application extends Container implements ApplicationContract, HttpKernelIn
      */
     public function getCachedRoutesPath()
     {
-        return $this->normalizeCachePath('APP_ROUTES_CACHE', 'cache/routes.php');
+        return $this->normalizeCachePath('APP_ROUTES_CACHE', 'cache/routes-v7.php');
     }
 
     /**
@@ -1199,6 +1199,7 @@ class Application extends Container implements ApplicationContract, HttpKernelIn
             'hash.driver'          => [\Illuminate\Contracts\Hashing\Hasher::class],
             'translator'           => [\Illuminate\Translation\Translator::class, \Illuminate\Contracts\Translation\Translator::class],
             'log'                  => [\Illuminate\Log\LogManager::class, \Psr\Log\LoggerInterface::class],
+            'mail.manager'         => [\Illuminate\Mail\MailManager::class, \Illuminate\Contracts\Mail\Factory::class],
             'mailer'               => [\Illuminate\Mail\Mailer::class, \Illuminate\Contracts\Mail\Mailer::class, \Illuminate\Contracts\Mail\MailQueue::class],
             'auth.password'        => [\Illuminate\Auth\Passwords\PasswordBrokerManager::class, \Illuminate\Contracts\Auth\PasswordBrokerFactory::class],
             'auth.password.broker' => [\Illuminate\Auth\Passwords\PasswordBroker::class, \Illuminate\Contracts\Auth\PasswordBroker::class],

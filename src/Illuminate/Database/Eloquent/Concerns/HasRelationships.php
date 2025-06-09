@@ -233,7 +233,7 @@ trait HasRelationships
         // If the type value is null it is probably safe to assume we're eager loading
         // the relationship. In this case we'll just pass in a dummy query where we
         // need to remove any eager loads that may already be defined on a model.
-        return is_null($class = $this->{$type}) || $class === ''
+        return empty($class = $this->{$type})
                     ? $this->morphEagerTo($name, $type, $id, $ownerKey)
                     : $this->morphInstanceTo($class, $name, $type, $id, $ownerKey);
     }
@@ -488,7 +488,7 @@ trait HasRelationships
      * @param  string  $relatedPivotKey
      * @param  string  $parentKey
      * @param  string  $relatedKey
-     * @param  string  $relationName
+     * @param  string|null  $relationName
      * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
      */
     protected function newBelongsToMany(Builder $query, Model $parent, $table, $foreignPivotKey, $relatedPivotKey,
