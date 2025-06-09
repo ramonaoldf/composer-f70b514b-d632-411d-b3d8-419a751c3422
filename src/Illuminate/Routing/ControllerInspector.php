@@ -1,9 +1,8 @@
-<?php namespace Illuminate\Routing\Controllers;
+<?php namespace Illuminate\Routing;
 
-use ReflectionClass;
-use ReflectionMethod;
+use ReflectionClass, ReflectionMethod;
 
-class Inspector {
+class ControllerInspector {
 
 	/**
 	 * An array of HTTP verbs.
@@ -69,9 +68,9 @@ class Inspector {
 	 */
 	public function isRoutable(ReflectionMethod $method, $controller)
 	{
-		if ($method->class == 'Illuminate\Routing\Controllers\Controller') return false;
+		if ($method->class == 'Illuminate\Routing\Controller') return false;
 
-		return $method->isPublic() and starts_with($method->name, $this->verbs);
+		return $method->isPublic() && starts_with($method->name, $this->verbs);
 	}
 
 	/**
