@@ -142,7 +142,7 @@ class Router implements HttpKernelInterface, RouteFiltererInterface {
 	 */
 	public function get($uri, $action)
 	{
-		return $this->addRoute(array('GET', 'HEAD'), $uri, $action);
+		return $this->addRoute(['GET', 'HEAD'], $uri, $action);
 	}
 
 	/**
@@ -1508,6 +1508,17 @@ class Router implements HttpKernelInterface, RouteFiltererInterface {
 	}
 
 	/**
+	 * Check if a route with the given name exists.
+	 *
+	 * @param  string  $name
+	 * @return bool
+	 */
+	public function has($name)
+	{
+		return $this->routes->hasNamedRoute($name);
+	}
+
+	/**
 	 * Get the current route name.
 	 *
 	 * @return string|null
@@ -1554,6 +1565,8 @@ class Router implements HttpKernelInterface, RouteFiltererInterface {
 	 */
 	public function currentRouteAction()
 	{
+		if ( ! $this->current()) return;
+
 		$action = $this->current()->getAction();
 
 		return isset($action['controller']) ? $action['controller'] : null;
