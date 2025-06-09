@@ -126,8 +126,8 @@ class ComponentAttributeBag implements ArrayAccess, Htmlable, IteratorAggregate
      */
     public function whereDoesntStartWith($string)
     {
-        return $this->reject(function ($value, $key) use ($string) {
-            return Str::startsWith($key, $string);
+        return $this->filter(function ($value, $key) use ($string) {
+            return ! Str::startsWith($key, $string);
         });
     }
 
@@ -219,7 +219,7 @@ class ComponentAttributeBag implements ArrayAccess, Htmlable, IteratorAggregate
 
             unset($attributes['attributes']);
 
-            $attributes = $parentBag->merge($attributes);
+            $attributes = $parentBag->merge($attributes)->getAttributes();
         }
 
         $this->attributes = $attributes;
