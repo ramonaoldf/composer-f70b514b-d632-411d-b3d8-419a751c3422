@@ -38,6 +38,15 @@ class WorkCommand extends Command
                             {--tries=1 : Number of times to attempt a job before logging it failed}';
 
     /**
+     * The name of the console command.
+     *
+     * This name is used to identify the command during lazy loading.
+     *
+     * @var string|null
+     */
+    protected static $defaultName = 'queue:work';
+
+    /**
      * The console command description.
      *
      * @var string
@@ -111,12 +120,11 @@ class WorkCommand extends Command
      */
     protected function runWorker($connection, $queue)
     {
-        return $this->worker
-            ->setName($this->option('name'))
-            ->setCache($this->cache)
-            ->{$this->option('once') ? 'runNextJob' : 'daemon'}(
-                $connection, $queue, $this->gatherWorkerOptions()
-            );
+        return $this->worker->setName($this->option('name'))
+                     ->setCache($this->cache)
+                     ->{$this->option('once') ? 'runNextJob' : 'daemon'}(
+            $connection, $queue, $this->gatherWorkerOptions()
+        );
     }
 
     /**
