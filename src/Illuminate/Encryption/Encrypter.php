@@ -99,24 +99,17 @@ class Encrypter implements EncrypterContract, StringEncrypter
     {
         $iv = random_bytes(openssl_cipher_iv_length(strtolower($this->cipher)));
 
-        $tag = '';
-
-        $value = self::$supportedCiphers[strtolower($this->cipher)]['aead']
-            ? \openssl_encrypt(
-                $serialize ? serialize($value) : $value,
-                strtolower($this->cipher), $this->key, 0, $iv, $tag
-            )
-            : \openssl_encrypt(
-                $serialize ? serialize($value) : $value,
-                strtolower($this->cipher), $this->key, 0, $iv
-            );
+        $value = \openssl_encrypt(
+            $serialize ? serialize($value) : $value,
+            strtolower($this->cipher), $this->key, 0, $iv, $tag
+        );
 
         if ($value === false) {
             throw new EncryptException('Could not encrypt the data.');
         }
 
         $iv = base64_encode($iv);
-        $tag = base64_encode($tag);
+        $tag = base64_encode($tag ?? '');
 
         $mac = self::$supportedCiphers[strtolower($this->cipher)]['aead']
             ? '' // For AEAD-algoritms, the tag / MAC is returned by openssl_encrypt...
@@ -159,9 +152,11 @@ class Encrypter implements EncrypterContract, StringEncrypter
 
         $iv = base64_decode($payload['iv']);
 
-        $this->ensureTagIsValid(
-            $tag = empty($payload['tag']) ? null : base64_decode($payload['tag'])
-        );
+        $tag = empty($payload['tag']) ? null : base64_decode($payload['tag']);
+
+        if (self::$supportedCiphers[strtolower($this->cipher)]['aead'] && strlen($tag) !== 16) {
+            throw new DecryptException('Could not decrypt the data.');
+        }
 
         // Here we will decrypt the value. If we are able to successfully decrypt it
         // we will then unserialize it and return it out to the caller. If we are
@@ -254,24 +249,7 @@ class Encrypter implements EncrypterContract, StringEncrypter
     }
 
     /**
-     * Ensure the given tag is a valid tag given the selected cipher.
-     *
-     * @param  string  $tag
-     * @return void
-     */
-    protected function ensureTagIsValid($tag)
-    {
-        if (self::$supportedCiphers[strtolower($this->cipher)]['aead'] && strlen($tag) !== 16) {
-            throw new DecryptException('Could not decrypt the data.');
-        }
-
-        if (! self::$supportedCiphers[strtolower($this->cipher)]['aead'] && is_string($tag)) {
-            throw new DecryptException('Unable to use tag because the cipher algorithm does not support AEAD.');
-        }
-    }
-
-    /**
-     * Get the encryption key.
+     * Get the encryption key that the encrypter is currently using.
      *
      * @return string
      */
