@@ -26,7 +26,7 @@ class Application extends Container implements HttpKernelInterface, TerminableIn
 	 *
 	 * @var string
 	 */
-	const VERSION = '4.1.16';
+	const VERSION = '4.1.17';
 
 	/**
 	 * Indicates if the application has "booted".
@@ -282,14 +282,30 @@ class Application extends Container implements HttpKernelInterface, TerminableIn
 	}
 
 	/**
-	 * Register a service provider with the application.
+	 * Force register a service provider with the application.
 	 *
 	 * @param  \Illuminate\Support\ServiceProvider|string  $provider
 	 * @param  array  $options
 	 * @return \Illuminate\Support\ServiceProvider
 	 */
-	public function register($provider, $options = array())
+	public function forgeRegister($provider, $options = array())
 	{
+		return $this->register($provider, $options, true);
+	}
+
+	/**
+	 * Register a service provider with the application.
+	 *
+	 * @param  \Illuminate\Support\ServiceProvider|string  $provider
+	 * @param  array  $options
+	 * @param  bool   $force
+	 * @return \Illuminate\Support\ServiceProvider
+	 */
+	public function register($provider, $options = array(), $force = false)
+	{
+		if ($registered = $this->getRegistered($provider) && ! $force)
+                                     return $registered;
+
 		// If the given "provider" is a string, we will resolve it, passing in the
 		// application instance automatically for the developer. This is simply
 		// a more convenient way of specifying your service provider classes.
@@ -316,6 +332,25 @@ class Application extends Container implements HttpKernelInterface, TerminableIn
 		if ($this->booted) $provider->boot();
 
 		return $provider;
+	}
+
+	/**
+	 * Get the registered service provider instnace if it exists.
+	 *
+	 * @param  \Illuminate\Support\ServiceProvider|string  $provider
+	 * @return \Illuminate\Support\ServiceProvider|null
+	 */
+	public function getRegistered($provider)
+	{
+		$name = is_string($provider) ? $provider : get_class($provider);
+
+		if (array_key_exists($name, $this->loadedProviders))
+		{
+			return array_first($this->serviceProviders, function($key, $value) use ($name)
+			{
+				return get_class($value) == $name;
+			});
+		}
 	}
 
 	/**
@@ -415,6 +450,8 @@ class Application extends Container implements HttpKernelInterface, TerminableIn
 	 */
 	public function make($abstract, $parameters = array())
 	{
+		$abstract = $this->getAlias($abstract);
+
 		if (isset($this->deferredServices[$abstract]))
 		{
 			$this->loadDeferredProvider($abstract);
@@ -674,7 +711,7 @@ class Application extends Container implements HttpKernelInterface, TerminableIn
 			if ( ! is_null($response)) return $this->prepareResponse($response, $request);
 		}
 
-		return $this['router']->dispatch($this->prepareRequest($request));
+		return $this['router']->dispatch($request);
 	}
 
 	/**
@@ -730,22 +767,6 @@ class Application extends Container implements HttpKernelInterface, TerminableIn
 		{
 			call_user_func($callback, $this);
 		}
-	}
-
-	/**
-	 * Prepare the request by injecting any services.
-	 *
-	 * @param  \Illuminate\Http\Request  $request
-	 * @return \Illuminate\Http\Request
-	 */
-	public function prepareRequest(Request $request)
-	{
-		if ( ! is_null($this['config']['session.driver']))
-		{
-			$request->setSessionStore($this['session.store']);
-		}
-
-		return $request;
 	}
 
 	/**
@@ -984,7 +1005,8 @@ class Application extends Container implements HttpKernelInterface, TerminableIn
 			'artisan'        => 'Illuminate\Console\Application',
 			'auth'           => 'Illuminate\Auth\AuthManager',
 			'blade.compiler' => 'Illuminate\View\Compilers\BladeCompiler',
-			'cache'          => 'Illuminate\Cache\Repository',
+			'cache'          => 'Illuminate\Cache\CacheManager',
+			'cache.store'    => 'Illuminate\Cache\Repository',
 			'config'         => 'Illuminate\Config\Repository',
 			'cookie'         => 'Illuminate\Cookie\CookieJar',
 			'encrypter'      => 'Illuminate\Encryption\Encrypter',
