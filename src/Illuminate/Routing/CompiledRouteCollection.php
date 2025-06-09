@@ -5,7 +5,7 @@ namespace Illuminate\Routing;
 use Illuminate\Container\Container;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
+use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 use Symfony\Component\Routing\Matcher\CompiledUrlMatcher;
 use Symfony\Component\Routing\RequestContext;
 
@@ -96,8 +96,12 @@ class CompiledRouteCollection extends AbstractRouteCollection
             $this->compiled, (new RequestContext)->fromRequest($request)
         );
 
-        if ($result = $matcher->matchRequest($request)) {
-            $route = $this->getByName($result['_route']);
+        try {
+            if ($result = $matcher->matchRequest($request)) {
+                $route = $this->getByName($result['_route']);
+            }
+        } catch (ResourceNotFoundException $e) {
+            //
         }
 
         return $this->handleMatchedRoute($request, $route);
@@ -222,11 +226,16 @@ class CompiledRouteCollection extends AbstractRouteCollection
      */
     protected function newRoute(array $attributes)
     {
-        $baseUri = ltrim(Str::replaceFirst(
-            ltrim($attributes['action']['prefix'] ?? '', '/'),
-            '',
-            $attributes['uri']
-        ), '/');
+        if (empty($attributes['action']['prefix'] ?? '')) {
+            $baseUri = $attributes['uri'];
+        } else {
+            $baseUri = trim(implode(
+                '/', array_slice(
+                    explode('/', trim($attributes['uri'], '/')),
+                    count(explode('/', trim($attributes['action']['prefix'], '/')))
+                )
+            ), '/');
+        }
 
         return (new Route($attributes['methods'], $baseUri == '' ? '/' : $baseUri, $attributes['action']))
             ->setFallback($attributes['fallback'])
