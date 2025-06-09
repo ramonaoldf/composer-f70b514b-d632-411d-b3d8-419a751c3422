@@ -339,6 +339,8 @@ class Builder
     protected function parseSub($query)
     {
         if ($query instanceof self || $query instanceof EloquentBuilder || $query instanceof Relation) {
+            $query = $this->prependDatabaseNameIfCrossDatabaseQuery($query);
+
             return [$query->toSql(), $query->getBindings()];
         } elseif (is_string($query)) {
             return [$query, []];
@@ -347,6 +349,26 @@ class Builder
                 'A subquery must be a query builder instance, a Closure, or a string.'
             );
         }
+    }
+
+    /**
+     * Prepend the database name if the given query is on another database.
+     *
+     * @param  mixed  $query
+     * @return mixed
+     */
+    protected function prependDatabaseNameIfCrossDatabaseQuery($query)
+    {
+        if ($query->getConnection()->getDatabaseName() !==
+            $this->getConnection()->getDatabaseName()) {
+            $databaseName = $query->getConnection()->getDatabaseName();
+
+            if (strpos($query->from, $databaseName) !== 0 && strpos($query->from, '.') === false) {
+                $query->from($databaseName.'.'.$query->from);
+            }
+        }
+
+        return $query;
     }
 
     /**
@@ -709,7 +731,7 @@ class Builder
         );
 
         if (! $value instanceof Expression) {
-            $this->addBinding($this->flattenValue($value), 'where');
+            $this->addBinding($value, 'where');
         }
 
         return $this;
@@ -1078,7 +1100,7 @@ class Builder
 
         $this->wheres[] = compact('type', 'column', 'values', 'boolean', 'not');
 
-        $this->addBinding(array_slice($this->cleanBindings(Arr::flatten($values)), 0, 2), 'where');
+        $this->addBinding($this->cleanBindings($values), 'where');
 
         return $this;
     }
@@ -1201,8 +1223,6 @@ class Builder
             $value, $operator, func_num_args() === 2
         );
 
-        $value = $this->flattenValue($value);
-
         if ($value instanceof DateTimeInterface) {
             $value = $value->format('Y-m-d');
         }
@@ -1242,8 +1262,6 @@ class Builder
             $value, $operator, func_num_args() === 2
         );
 
-        $value = $this->flattenValue($value);
-
         if ($value instanceof DateTimeInterface) {
             $value = $value->format('H:i:s');
         }
@@ -1282,8 +1300,6 @@ class Builder
         [$value, $operator] = $this->prepareValueAndOperator(
             $value, $operator, func_num_args() === 2
         );
-
-        $value = $this->flattenValue($value);
 
         if ($value instanceof DateTimeInterface) {
             $value = $value->format('d');
@@ -1328,8 +1344,6 @@ class Builder
             $value, $operator, func_num_args() === 2
         );
 
-        $value = $this->flattenValue($value);
-
         if ($value instanceof DateTimeInterface) {
             $value = $value->format('m');
         }
@@ -1372,8 +1386,6 @@ class Builder
         [$value, $operator] = $this->prepareValueAndOperator(
             $value, $operator, func_num_args() === 2
         );
-
-        $value = $this->flattenValue($value);
 
         if ($value instanceof DateTimeInterface) {
             $value = $value->format('Y');
@@ -1683,7 +1695,7 @@ class Builder
         $this->wheres[] = compact('type', 'column', 'operator', 'value', 'boolean');
 
         if (! $value instanceof Expression) {
-            $this->addBinding((int) $this->flattenValue($value));
+            $this->addBinding($value);
         }
 
         return $this;
@@ -1832,7 +1844,7 @@ class Builder
         $this->havings[] = compact('type', 'column', 'operator', 'value', 'boolean');
 
         if (! $value instanceof Expression) {
-            $this->addBinding($this->flattenValue($value), 'having');
+            $this->addBinding($value, 'having');
         }
 
         return $this;
@@ -1870,7 +1882,7 @@ class Builder
 
         $this->havings[] = compact('type', 'column', 'values', 'boolean', 'not');
 
-        $this->addBinding(array_slice($this->cleanBindings(Arr::flatten($values)), 0, 2), 'having');
+        $this->addBinding($this->cleanBindings($values), 'having');
 
         return $this;
     }
@@ -2022,7 +2034,7 @@ class Builder
     {
         $property = $this->unions ? 'unionOffset' : 'offset';
 
-        $this->$property = max(0, (int) $value);
+        $this->$property = max(0, $value);
 
         return $this;
     }
@@ -2049,7 +2061,7 @@ class Builder
         $property = $this->unions ? 'unionLimit' : 'limit';
 
         if ($value >= 0) {
-            $this->$property = ! is_null($value) ? (int) $value : null;
+            $this->$property = $value;
         }
 
         return $this;
@@ -3085,22 +3097,11 @@ class Builder
      * @param  array  $bindings
      * @return array
      */
-    protected function cleanBindings(array $bindings)
+    public function cleanBindings(array $bindings)
     {
         return array_values(array_filter($bindings, function ($binding) {
             return ! $binding instanceof Expression;
         }));
-    }
-
-    /**
-     * Get a scalar type value from an unknown type of input.
-     *
-     * @param  mixed  $value
-     * @return mixed
-     */
-    protected function flattenValue($value)
-    {
-        return is_array($value) ? head(Arr::flatten($value)) : $value;
     }
 
     /**
