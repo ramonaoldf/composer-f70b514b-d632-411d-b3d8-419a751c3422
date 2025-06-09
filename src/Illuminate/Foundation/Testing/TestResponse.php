@@ -145,12 +145,11 @@ class TestResponse
      *
      * @param  string  $cookieName
      * @param  mixed  $value
-     * @param  bool  $unserialize
      * @return $this
      */
-    public function assertPlainCookie($cookieName, $value = null, $unserialize = false)
+    public function assertPlainCookie($cookieName, $value = null)
     {
-        $this->assertCookie($cookieName, $value, false, $unserialize);
+        $this->assertCookie($cookieName, $value, false);
 
         return $this;
     }
@@ -161,10 +160,9 @@ class TestResponse
      * @param  string  $cookieName
      * @param  mixed  $value
      * @param  bool  $encrypted
-     * @param  bool  $unserialize
      * @return $this
      */
-    public function assertCookie($cookieName, $value = null, $encrypted = true, $unserialize = false)
+    public function assertCookie($cookieName, $value = null, $encrypted = true)
     {
         PHPUnit::assertNotNull(
             $cookie = $this->getCookie($cookieName),
@@ -178,7 +176,7 @@ class TestResponse
         $cookieValue = $cookie->getValue();
 
         $actual = $encrypted
-            ? app('encrypter')->decrypt($cookieValue, $unserialize) : $cookieValue;
+            ? app('encrypter')->decrypt($cookieValue) : $cookieValue;
 
         PHPUnit::assertEquals(
             $value, $actual,
@@ -256,6 +254,32 @@ class TestResponse
     }
 
     /**
+     * Assert that the given strings are contained in order within the response.
+     *
+     * @param  array  $values
+     * @return $this
+     */
+    public function assertSeeInOrder(array $values)
+    {
+        $position = 0;
+
+        foreach ($values as $value) {
+            $valuePosition = mb_strpos($this->getContent(), $value, $position);
+
+            if ($valuePosition === false || $valuePosition < $position) {
+                PHPUnit::fail(
+                    'Failed asserting that \''.$this->getContent().
+                    '\' contains "'.$value.'" in specified order.'
+                );
+            }
+
+            $position = $valuePosition + mb_strlen($value);
+        }
+
+        return $this;
+    }
+
+    /**
      * Assert that the given string is contained within the response text.
      *
      * @param  string  $value
@@ -264,6 +288,32 @@ class TestResponse
     public function assertSeeText($value)
     {
         PHPUnit::assertContains($value, strip_tags($this->getContent()));
+
+        return $this;
+    }
+
+    /**
+     * Assert that the given strings are contained in order within the response text.
+     *
+     * @param  array  $values
+     * @return $this
+     */
+    public function assertSeeTextInOrder(array $values)
+    {
+        $position = 0;
+
+        foreach ($values as $value) {
+            $valuePosition = mb_strpos(strip_tags($this->getContent()), $value, $position);
+
+            if ($valuePosition === false || $valuePosition < $position) {
+                PHPUnit::fail(
+                    'Failed asserting that \''.strip_tags($this->getContent()).
+                    '\' contains "'.$value.'" in specified order.'
+                );
+            }
+
+            $position = $valuePosition + mb_strlen($value);
+        }
 
         return $this;
     }
@@ -517,9 +567,10 @@ class TestResponse
     /**
      * Validate and return the decoded response JSON.
      *
-     * @return array
+     * @param  string|null  $key
+     * @return mixed
      */
-    public function decodeResponseJson()
+    public function decodeResponseJson($key = null)
     {
         $decodedResponse = json_decode($this->getContent(), true);
 
@@ -531,17 +582,18 @@ class TestResponse
             }
         }
 
-        return $decodedResponse;
+        return data_get($decodedResponse, $key);
     }
 
     /**
      * Validate and return the decoded response JSON.
      *
-     * @return array
+     * @param  string|null  $key
+     * @return mixed
      */
-    public function json()
+    public function json($key = null)
     {
-        return $this->decodeResponseJson();
+        return $this->decodeResponseJson($key);
     }
 
     /**
