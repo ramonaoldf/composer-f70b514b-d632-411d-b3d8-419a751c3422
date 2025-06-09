@@ -1,13 +1,11 @@
 <?php
 
-namespace {{ namespace }};
+namespace Illuminate\Contracts\Database\Eloquent;
 
-use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
-
-class {{ class }} implements CastsAttributes
+interface DeviatesCastableAttributes
 {
     /**
-     * Cast the given value.
+     * Increment the attribute.
      *
      * @param  \Illuminate\Database\Eloquent\Model  $model
      * @param  string  $key
@@ -15,13 +13,10 @@ class {{ class }} implements CastsAttributes
      * @param  array  $attributes
      * @return mixed
      */
-    public function get($model, $key, $value, $attributes)
-    {
-        return $value;
-    }
+    public function increment($model, string $key, $value, array $attributes);
 
     /**
-     * Prepare the given value for storage.
+     * Decrement the attribute.
      *
      * @param  \Illuminate\Database\Eloquent\Model  $model
      * @param  string  $key
@@ -29,8 +24,5 @@ class {{ class }} implements CastsAttributes
      * @param  array  $attributes
      * @return mixed
      */
-    public function set($model, $key, $value, $attributes)
-    {
-        return $value;
-    }
+    public function decrement($model, string $key, $value, array $attributes);
 }
