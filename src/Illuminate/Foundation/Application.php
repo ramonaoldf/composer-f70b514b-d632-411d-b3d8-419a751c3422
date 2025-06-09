@@ -20,7 +20,7 @@ class Application extends Container implements ApplicationContract, HttpKernelIn
 	 *
 	 * @var string
 	 */
-	const VERSION = '5.0.25';
+	const VERSION = '5.0.26';
 
 	/**
 	 * The base path for the Laravel installation.
@@ -84,6 +84,13 @@ class Application extends Container implements ApplicationContract, HttpKernelIn
 	 * @var array
 	 */
 	protected $deferredServices = array();
+
+	/**
+	 * The custom database path defined by the developer.
+	 *
+	 * @var string
+	 */
+	protected $databasePath;
 
 	/**
 	 * The custom storage path defined by the developer.
@@ -293,7 +300,22 @@ class Application extends Container implements ApplicationContract, HttpKernelIn
 	 */
 	public function databasePath()
 	{
-		return $this->basePath.DIRECTORY_SEPARATOR.'database';
+		return $this->databasePath ?: $this->basePath.DIRECTORY_SEPARATOR.'database';
+	}
+
+	/**
+	 * Set the database directory.
+	 *
+	 * @param  string  $path
+	 * @return $this
+	 */
+	public function useDatabasePath($path)
+	{
+		$this->databasePath = $path;
+
+		$this->instance('path.database', $path);
+
+		return $this;
 	}
 
 	/**
