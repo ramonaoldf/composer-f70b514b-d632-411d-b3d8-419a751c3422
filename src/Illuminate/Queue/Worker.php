@@ -146,27 +146,17 @@ class Worker
      */
     public function pop($connectionName, $queue = null, $delay = 0, $sleep = 3, $maxTries = 0)
     {
-        try {
-            $connection = $this->manager->connection($connectionName);
+        $connection = $this->manager->connection($connectionName);
 
-            $job = $this->getNextJob($connection, $queue);
+        $job = $this->getNextJob($connection, $queue);
 
-            // If we're able to pull a job off of the stack, we will process it and
-            // then immediately return back out. If there is no job on the queue
-            // we will "sleep" the worker for the specified number of seconds.
-            if (! is_null($job)) {
-                return $this->process(
-                    $this->manager->getName($connectionName), $job, $maxTries, $delay
-                );
-            }
-        } catch (Exception $e) {
-            if ($this->exceptions) {
-                $this->exceptions->report($e);
-            }
-        } catch (Throwable $e) {
-            if ($this->exceptions) {
-                $this->exceptions->report(new FatalThrowableError($e));
-            }
+        // If we're able to pull a job off of the stack, we will process it and
+        // then immediately return back out. If there is no job on the queue
+        // we will "sleep" the worker for the specified number of seconds.
+        if (! is_null($job)) {
+            return $this->process(
+                $this->manager->getName($connectionName), $job, $maxTries, $delay
+            );
         }
 
         $this->sleep($sleep);
@@ -250,7 +240,7 @@ class Worker
         if ($this->events) {
             $data = json_decode($job->getRawBody(), true);
 
-            $this->events->fire('illuminate.queue.after', [$connection, $job, $data]);
+            $this->events->fire(new Events\JobProcessed($connection, $job, $data));
         }
     }
 
@@ -288,7 +278,7 @@ class Worker
         if ($this->events) {
             $data = json_decode($job->getRawBody(), true);
 
-            $this->events->fire('illuminate.queue.failed', [$connection, $job, $data]);
+            $this->events->fire(new Events\JobFailed($connection, $job, $data));
         }
     }
 
@@ -310,7 +300,7 @@ class Worker
      */
     public function stop()
     {
-        $this->events->fire('illuminate.queue.stopping');
+        $this->events->fire(new Events\WorkerStopping);
 
         die;
     }

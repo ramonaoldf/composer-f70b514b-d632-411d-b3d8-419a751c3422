@@ -631,16 +631,23 @@ class Builder
      */
     public function whereNested(Closure $callback, $boolean = 'and')
     {
-        // To handle nested queries we'll actually create a brand new query instance
-        // and pass it off to the Closure that we have. The Closure can simply do
-        // do whatever it wants to a query then we will store it for compiling.
-        $query = $this->newQuery();
-
-        $query->from($this->from);
+        $query = $this->forNestedWhere();
 
         call_user_func($callback, $query);
 
         return $this->addNestedWhereQuery($query, $boolean);
+    }
+
+    /**
+     * Create a new query instance for nested where condition.
+     *
+     * @return \Illuminate\Database\Query\Builder
+     */
+    public function forNestedWhere()
+    {
+        $query = $this->newQuery();
+
+        return $query->from($this->from);
     }
 
     /**
@@ -1366,21 +1373,6 @@ class Builder
     }
 
     /**
-     * Get a single column's value from the first result of a query.
-     *
-     * This is an alias for the "value" method.
-     *
-     * @param  string  $column
-     * @return mixed
-     *
-     * @deprecated since version 5.1.
-     */
-    public function pluck($column)
-    {
-        return $this->value($column);
-    }
-
-    /**
      * Execute the query and get the first result.
      *
      * @param  array   $columns
@@ -1401,24 +1393,17 @@ class Builder
      */
     public function get($columns = ['*'])
     {
-        if (is_null($this->columns)) {
+        $original = $this->columns;
+
+        if (is_null($original)) {
             $this->columns = $columns;
         }
 
-        return $this->processor->processSelect($this, $this->runSelect());
-    }
+        $results = $this->processor->processSelect($this, $this->runSelect());
 
-    /**
-     * Execute the query as a fresh "select" statement.
-     *
-     * @param  array  $columns
-     * @return array|static[]
-     *
-     * @deprecated since version 5.1. Use get instead.
-     */
-    public function getFresh($columns = ['*'])
-    {
-        return $this->get($columns);
+        $this->columns = $original;
+
+        return $results;
     }
 
     /**
@@ -1588,7 +1573,7 @@ class Builder
      * @param  string|null  $key
      * @return array
      */
-    public function lists($column, $key = null)
+    public function pluck($column, $key = null)
     {
         $results = $this->get(is_null($key) ? [$column] : [$column, $key]);
 
@@ -1597,9 +1582,23 @@ class Builder
         // are only keyed by the column itself. We'll strip the table out here.
         return Arr::pluck(
             $results,
-            $this->stripTableForPluck($column),
-            $this->stripTableForPluck($key)
+            $this->stripeTableForPluck($column),
+            $this->stripeTableForPluck($key)
         );
+    }
+
+    /**
+     * Alias for the "pluck" method.
+     *
+     * @param  string  $column
+     * @param  string|null  $key
+     * @return array
+     *
+     * @deprecated since version 5.2. Use the "pluck" method directly.
+     */
+    public function lists($column, $key = null)
+    {
+        return $this->pluck($column, $key);
     }
 
     /**
@@ -1608,7 +1607,7 @@ class Builder
      * @param  string  $column
      * @return string|null
      */
-    protected function stripTableForPluck($column)
+    protected function stripeTableForPluck($column)
     {
         return is_null($column) ? $column : last(preg_split('~\.| ~', $column));
     }
@@ -1622,7 +1621,7 @@ class Builder
      */
     public function implode($column, $glue = '')
     {
-        return implode($glue, $this->lists($column));
+        return implode($glue, $this->pluck($column));
     }
 
     /**
@@ -1664,7 +1663,7 @@ class Builder
      * Retrieve the minimum value of a given column.
      *
      * @param  string  $column
-     * @return mixed
+     * @return float|int
      */
     public function min($column)
     {
@@ -1675,7 +1674,7 @@ class Builder
      * Retrieve the maximum value of a given column.
      *
      * @param  string  $column
-     * @return mixed
+     * @return float|int
      */
     public function max($column)
     {
@@ -1686,18 +1685,20 @@ class Builder
      * Retrieve the sum of the values of a given column.
      *
      * @param  string  $column
-     * @return mixed
+     * @return float|int
      */
     public function sum($column)
     {
-        return $this->aggregate(__FUNCTION__, [$column]);
+        $result = $this->aggregate(__FUNCTION__, [$column]);
+
+        return $result ?: 0;
     }
 
     /**
      * Retrieve the average of the values of a given column.
      *
      * @param  string  $column
-     * @return mixed
+     * @return float|int
      */
     public function avg($column)
     {
@@ -1708,7 +1709,7 @@ class Builder
      * Alias for the "avg" method.
      *
      * @param  string  $column
-     * @return mixed
+     * @return float|int
      */
     public function average($column)
     {
@@ -1720,7 +1721,7 @@ class Builder
      *
      * @param  string  $function
      * @param  array   $columns
-     * @return mixed
+     * @return float|int
      */
     public function aggregate($function, $columns = ['*'])
     {
@@ -1747,34 +1748,10 @@ class Builder
         $this->bindings['select'] = $previousSelectBindings;
 
         if (isset($results[0])) {
-            return array_change_key_case((array) $results[0])['aggregate'];
+            $result = array_change_key_case((array) $results[0]);
+
+            return $result['aggregate'];
         }
-    }
-
-    /**
-     * Execute a numeric aggregate function on the database.
-     *
-     * @param  string  $function
-     * @param  array   $columns
-     * @return float|int
-     */
-    public function numericAggregate($function, $columns = ['*'])
-    {
-        $result = $this->aggregate($function, $columns);
-
-        if (! $result) {
-            return 0;
-        }
-
-        if (is_int($result) || is_float($result)) {
-            return $result;
-        }
-
-        if (strpos((string) $result, '.') === false) {
-            return (int) $result;
-        }
-
-        return (float) $result;
     }
 
     /**
@@ -1868,10 +1845,6 @@ class Builder
      */
     public function increment($column, $amount = 1, array $extra = [])
     {
-        if (! is_numeric($amount)) {
-            throw new InvalidArgumentException('Non-numeric value passed to increment method.');
-        }
-
         $wrapped = $this->grammar->wrap($column);
 
         $columns = array_merge([$column => $this->raw("$wrapped + $amount")], $extra);
@@ -1889,10 +1862,6 @@ class Builder
      */
     public function decrement($column, $amount = 1, array $extra = [])
     {
-        if (! is_numeric($amount)) {
-            throw new InvalidArgumentException('Non-numeric value passed to decrement method.');
-        }
-
         $wrapped = $this->grammar->wrap($column);
 
         $columns = array_merge([$column => $this->raw("$wrapped - $amount")], $extra);

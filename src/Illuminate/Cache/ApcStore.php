@@ -6,6 +6,8 @@ use Illuminate\Contracts\Cache\Store;
 
 class ApcStore extends TaggableStore implements Store
 {
+    use RetrievesMultipleKeys;
+
     /**
      * The APC wrapper instance.
      *
@@ -36,7 +38,7 @@ class ApcStore extends TaggableStore implements Store
     /**
      * Retrieve an item from the cache by key.
      *
-     * @param  string  $key
+     * @param  string|array  $key
      * @return mixed
      */
     public function get($key)
@@ -90,11 +92,11 @@ class ApcStore extends TaggableStore implements Store
      *
      * @param  string  $key
      * @param  mixed   $value
-     * @return void
+     * @return array|bool
      */
     public function forever($key, $value)
     {
-        $this->put($key, $value, 0);
+        return $this->put($key, $value, 0);
     }
 
     /**

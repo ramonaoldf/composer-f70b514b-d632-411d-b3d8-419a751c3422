@@ -7,7 +7,6 @@ use Swift_Mailer;
 use Swift_Message;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
-use Psr\Log\LoggerInterface;
 use SuperClosure\Serializer;
 use InvalidArgumentException;
 use Illuminate\Contracts\View\Factory;
@@ -48,13 +47,6 @@ class Mailer implements MailerContract, MailQueueContract
     protected $from;
 
     /**
-     * The log writer instance.
-     *
-     * @var \Psr\Log\LoggerInterface
-     */
-    protected $logger;
-
-    /**
      * The IoC container instance.
      *
      * @var \Illuminate\Contracts\Container\Container
@@ -67,13 +59,6 @@ class Mailer implements MailerContract, MailQueueContract
      * @var \Illuminate\Contracts\Queue\Queue
      */
     protected $queue;
-
-    /**
-     * Indicates if the actual sending is disabled.
-     *
-     * @var bool
-     */
-    protected $pretending = false;
 
     /**
      * Array of failed recipients.
@@ -156,6 +141,8 @@ class Mailer implements MailerContract, MailQueueContract
      */
     public function send($view, array $data, $callback)
     {
+        $this->forceReconnection();
+
         // First we need to parse the view, which could either be a string or an array
         // containing both an HTML and plain text versions of the view which should
         // be used when sending an e-mail. We will extract both of them out here.
@@ -386,31 +373,10 @@ class Mailer implements MailerContract, MailQueueContract
     protected function sendSwiftMessage($message)
     {
         if ($this->events) {
-            $this->events->fire('mailer.sending', [$message]);
+            $this->events->fire(new Events\MessageSending($message));
         }
 
-        if (! $this->pretending) {
-            try {
-                return $this->swift->send($message, $this->failedRecipients);
-            } finally {
-                $this->swift->getTransport()->stop();
-            }
-        } elseif (isset($this->logger)) {
-            $this->logMessage($message);
-        }
-    }
-
-    /**
-     * Log that a message was sent.
-     *
-     * @param  \Swift_Message  $message
-     * @return void
-     */
-    protected function logMessage($message)
-    {
-        $emails = implode(', ', array_keys((array) $message->getTo()));
-
-        $this->logger->info("Pretending to mail message to: {$emails}");
+        return $this->swift->send($message, $this->failedRecipients);
     }
 
     /**
@@ -467,27 +433,6 @@ class Mailer implements MailerContract, MailQueueContract
     }
 
     /**
-     * Tell the mailer to not really send messages.
-     *
-     * @param  bool  $value
-     * @return void
-     */
-    public function pretend($value = true)
-    {
-        $this->pretending = $value;
-    }
-
-    /**
-     * Check if the mailer is pretending to send messages.
-     *
-     * @return bool
-     */
-    public function isPretending()
-    {
-        return $this->pretending;
-    }
-
-    /**
      * Get the view factory instance.
      *
      * @return \Illuminate\Contracts\View\Factory
@@ -526,19 +471,6 @@ class Mailer implements MailerContract, MailQueueContract
     public function setSwiftMailer($swift)
     {
         $this->swift = $swift;
-    }
-
-    /**
-     * Set the log writer instance.
-     *
-     * @param  \Psr\Log\LoggerInterface  $logger
-     * @return $this
-     */
-    public function setLogger(LoggerInterface $logger)
-    {
-        $this->logger = $logger;
-
-        return $this;
     }
 
     /**
