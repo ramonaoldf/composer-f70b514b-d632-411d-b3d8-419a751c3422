@@ -10,8 +10,8 @@ use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Mail\Mailer;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Date;
-use Illuminate\Support\Reflector;
 use Illuminate\Support\Traits\Macroable;
 use Psr\Http\Client\ClientExceptionInterface;
 use Symfony\Component\Process\Process;
@@ -263,20 +263,6 @@ class Event
     }
 
     /**
-     * Call all of the "after" callbacks for the event.
-     *
-     * @param  \Illuminate\Contracts\Container\Container  $container
-     * @param  int  $exitCode
-     * @return void
-     */
-    public function callAfterCallbacksWithExitCode(Container $container, $exitCode)
-    {
-        $this->exitCode = (int) $exitCode;
-
-        $this->callAfterCallbacks($container);
-    }
-
-    /**
      * Build the command string.
      *
      * @return string
@@ -319,10 +305,10 @@ class Event
      */
     protected function expressionPasses()
     {
-        $date = Date::now();
+        $date = Carbon::now();
 
         if ($this->timezone) {
-            $date = $date->setTimezone($this->timezone);
+            $date->setTimezone($this->timezone);
         }
 
         return CronExpression::factory($this->expression)->isDue($date->toDateTimeString());
@@ -576,8 +562,8 @@ class Event
     {
         return function (Container $container, HttpClient $http) use ($url) {
             try {
-                $http->get($url);
-            } catch (ClientExceptionInterface|TransferException $e) {
+                $http->request('GET', $url);
+            } catch (ClientExceptionInterface | TransferException $e) {
                 $container->make(ExceptionHandler::class)->report($e);
             }
         };
@@ -672,7 +658,7 @@ class Event
      */
     public function when($callback)
     {
-        $this->filters[] = Reflector::isCallable($callback) ? $callback : function () use ($callback) {
+        $this->filters[] = is_callable($callback) ? $callback : function () use ($callback) {
             return $callback;
         };
 
@@ -687,7 +673,7 @@ class Event
      */
     public function skip($callback)
     {
-        $this->rejects[] = Reflector::isCallable($callback) ? $callback : function () use ($callback) {
+        $this->rejects[] = is_callable($callback) ? $callback : function () use ($callback) {
             return $callback;
         };
 
