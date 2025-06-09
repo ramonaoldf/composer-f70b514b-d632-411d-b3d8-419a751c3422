@@ -185,15 +185,15 @@ if (! function_exists('base_path')) {
 
 if (! function_exists('bcrypt')) {
     /**
-     * Hash the given value.
+     * Hash the given value against the bcrypt algorithm.
      *
      * @param  string  $value
-     * @param  array   $options
+     * @param  array  $options
      * @return string
      */
     function bcrypt($value, $options = [])
     {
-        return app('hash')->make($value, $options);
+        return app('hash')->driver('bcrypt')->make($value, $options);
     }
 }
 
@@ -363,12 +363,11 @@ if (! function_exists('decrypt')) {
      * Decrypt the given value.
      *
      * @param  string  $value
-     * @param  bool   $unserialize
      * @return string
      */
-    function decrypt($value, $unserialize = true)
+    function decrypt($value)
     {
-        return app('encrypter')->decrypt($value, $unserialize);
+        return app('encrypter')->decrypt($value);
     }
 }
 
@@ -444,12 +443,11 @@ if (! function_exists('encrypt')) {
      * Encrypt the given value.
      *
      * @param  mixed  $value
-     * @param  bool   $serialize
      * @return string
      */
-    function encrypt($value, $serialize = true)
+    function encrypt($value)
     {
-        return app('encrypter')->encrypt($value, $serialize);
+        return app('encrypter')->encrypt($value);
     }
 }
 
@@ -511,7 +509,7 @@ if (! function_exists('logger')) {
      *
      * @param  string  $message
      * @param  array  $context
-     * @return \Illuminate\Contracts\Logging\Log|null
+     * @return \Illuminate\Log\LogManager|null
      */
     function logger($message = null, array $context = [])
     {
@@ -520,6 +518,19 @@ if (! function_exists('logger')) {
         }
 
         return app('log')->debug($message, $context);
+    }
+}
+
+if (! function_exists('logs')) {
+    /**
+     * Get a log driver instance.
+     *
+     * @param  string  $driver
+     * @return \Illuminate\Log\LogManager|\Psr\Log\LoggerInterface
+     */
+    function logs($driver = null)
+    {
+        return $driver ? app('log')->driver($driver) : app('log');
     }
 }
 
@@ -780,9 +791,9 @@ if (! function_exists('route')) {
     /**
      * Generate the URL to a named route.
      *
-     * @param  array|string  $name
-     * @param  array  $parameters
-     * @param  bool  $absolute
+     * @param  string  $name
+     * @param  array   $parameters
+     * @param  bool    $absolute
      * @return string
      */
     function route($name, $parameters = [], $absolute = true)
