@@ -26,7 +26,7 @@ class Application extends Container implements HttpKernelInterface, TerminableIn
 	 *
 	 * @var string
 	 */
-	const VERSION = '4.1.15';
+	const VERSION = '4.1.16';
 
 	/**
 	 * Indicates if the application has "booted".
@@ -989,7 +989,7 @@ class Application extends Container implements HttpKernelInterface, TerminableIn
 			'cookie'         => 'Illuminate\Cookie\CookieJar',
 			'encrypter'      => 'Illuminate\Encryption\Encrypter',
 			'db'             => 'Illuminate\Database\DatabaseManager',
-			'events'         => 'Illuminate\Events\Dispatcher',
+			'events'         => 'Illuminate\Events\Dispatacher',
 			'files'          => 'Illuminate\Filesystem\Filesystem',
 			'form'           => 'Illuminate\Html\FormBuilder',
 			'hash'           => 'Illuminate\Hashing\HasherInterface',
@@ -997,7 +997,7 @@ class Application extends Container implements HttpKernelInterface, TerminableIn
 			'translator'     => 'Illuminate\Translation\Translator',
 			'log'            => 'Illuminate\Log\Writer',
 			'mailer'         => 'Illuminate\Mail\Mailer',
-			'paginator'      => 'Illuminate\Pagination\Factory',
+			'paginator'      => 'Illuminate\Pagination\Environment',
 			'auth.reminder'  => 'Illuminate\Auth\Reminders\PasswordBroker',
 			'queue'          => 'Illuminate\Queue\QueueManager',
 			'redirect'       => 'Illuminate\Routing\Redirector',
@@ -1009,7 +1009,7 @@ class Application extends Container implements HttpKernelInterface, TerminableIn
 			'remote'         => 'Illuminate\Remote\RemoteManager',
 			'url'            => 'Illuminate\Routing\UrlGenerator',
 			'validator'      => 'Illuminate\Validation\Factory',
-			'view'           => 'Illuminate\View\Factory',
+			'view'           => 'Illuminate\View\Environment',
 		);
 
 		foreach ($aliases as $key => $alias)
