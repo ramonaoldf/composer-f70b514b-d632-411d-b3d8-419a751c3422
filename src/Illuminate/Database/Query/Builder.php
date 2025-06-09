@@ -2258,6 +2258,10 @@ class Builder
         if ($this->groups || $this->havings) {
             $clone = $this->cloneForPaginationCount();
 
+            if (is_null($clone->columns) && ! empty($this->joins)) {
+                $clone->select($this->from.'.*');
+            }
+
             return $this->newQuery()
                 ->from(new Expression('('.$clone->toSql().') as '.$this->grammar->wrap('aggregate_table')))
                 ->mergeBindings($clone)
