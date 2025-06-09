@@ -812,7 +812,7 @@ class BladeCompiler extends Compiler implements CompilerInterface
      */
     public function anonymousComponentPath(string $path, ?string $prefix = null)
     {
-        $prefixHash = md5($prefix ?: $path);
+        $prefixHash = hash('xxh128', $prefix ?: $path);
 
         $this->anonymousComponentPaths[] = [
             'path' => $path,
@@ -1001,28 +1001,6 @@ class BladeCompiler extends Compiler implements CompilerInterface
     public function precompiler(callable $precompiler)
     {
         $this->precompilers[] = $precompiler;
-    }
-
-    /**
-     * Execute the given callback using a custom echo format.
-     *
-     * @param  string  $format
-     * @param  callable  $callback
-     * @return string
-     */
-    public function usingEchoFormat($format, callable $callback)
-    {
-        $originalEchoFormat = $this->echoFormat;
-
-        $this->setEchoFormat($format);
-
-        try {
-            $output = call_user_func($callback);
-        } finally {
-            $this->setEchoFormat($originalEchoFormat);
-        }
-
-        return $output;
     }
 
     /**
