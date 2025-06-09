@@ -198,10 +198,8 @@ class Worker
     protected function stopIfNecessary(WorkerOptions $options, $lastRestart)
     {
         if ($this->shouldQuit) {
-            $this->kill();
-        }
-
-        if ($this->memoryExceeded($options->memory)) {
+            $this->stop();
+        } elseif ($this->memoryExceeded($options->memory)) {
             $this->stop(12);
         } elseif ($this->queueShouldRestart($lastRestart)) {
             $this->stop();
@@ -556,7 +554,7 @@ class Worker
      */
     public function stop($status = 0)
     {
-        $this->events->dispatch(new Events\WorkerStopping);
+        $this->events->dispatch(new Events\WorkerStopping($status));
 
         exit($status);
     }
@@ -569,7 +567,7 @@ class Worker
      */
     public function kill($status = 0)
     {
-        $this->events->dispatch(new Events\WorkerStopping);
+        $this->events->dispatch(new Events\WorkerStopping($status));
 
         if (extension_loaded('posix')) {
             posix_kill(getmypid(), SIGKILL);
