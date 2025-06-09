@@ -856,14 +856,23 @@ class Builder
      */
     protected function addUpdatedAtColumn(array $values)
     {
-        if (! $this->model->usesTimestamps()) {
+        if (! $this->model->usesTimestamps() ||
+            is_null($this->model->getUpdatedAtColumn())) {
             return $values;
         }
 
-        return Arr::add(
-            $values, $this->model->getUpdatedAtColumn(),
-            $this->model->freshTimestampString()
+        $column = $this->model->getUpdatedAtColumn();
+
+        $values = array_merge(
+            [$column => $this->model->freshTimestampString()],
+            $values
         );
+
+        $values[$this->qualifyColumn($column)] = $values[$column];
+
+        unset($values[$column]);
+
+        return $values;
     }
 
     /**
@@ -951,7 +960,7 @@ class Builder
                 continue;
             }
 
-            $builder->callScope(function (self $builder) use ($scope) {
+            $builder->callScope(function (Builder $builder) use ($scope) {
                 // If the scope is a Closure we will just go ahead and call the scope with the
                 // builder instance. The "callScope" method will properly group the clauses
                 // that are added to this query so "where" clauses maintain proper logic.

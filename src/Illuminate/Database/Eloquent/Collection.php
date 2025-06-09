@@ -141,7 +141,7 @@ class Collection extends BaseCollection implements QueueableCollection
      * @param  array  $path
      * @return void
      */
-    protected function loadMissingRelation(self $models, array $path)
+    protected function loadMissingRelation(Collection $models, array $path)
     {
         $relation = array_shift($path);
 
@@ -185,19 +185,6 @@ class Collection extends BaseCollection implements QueueableCollection
             ->each(function ($models, $className) use ($relations) {
                 static::make($models)->load($relations[$className] ?? []);
             });
-
-        return $this;
-    }
-
-    /**
-     * Add an item to the collection.
-     *
-     * @param  mixed  $item
-     * @return $this
-     */
-    public function add($item)
-    {
-        $this->items[] = $item;
 
         return $this;
     }
