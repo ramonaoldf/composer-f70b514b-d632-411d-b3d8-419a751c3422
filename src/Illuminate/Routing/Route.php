@@ -264,7 +264,14 @@ class Route {
 	 */
 	public function parameters()
 	{
-		if (isset($this->parameters)) return array_map('urldecode', $this->parameters);
+		if (isset($this->parameters))
+		{
+			return array_map(function($value)
+			{
+				return is_string($value) ? urldecode($value) : $value;
+
+			}, $this->parameters);
+		}
 
 		throw new \LogicException("Route is not bound.");
 	}
@@ -276,7 +283,7 @@ class Route {
 	 */
 	public function parametersWithoutNulls()
 	{
-        return array_filter($this->parameters(), function($p) { return ! is_null($p); });
+		return array_filter($this->parameters(), function($p) { return ! is_null($p); });
 	}
 
 	/**
@@ -440,9 +447,22 @@ class Route {
 	 */
 	public static function compileString($value, $delimit = true, array $wheres = array())
 	{
+		$value = static::prepareString($value);
+
 		$value = static::compileOptional(static::compileParameters($value, $wheres), $wheres);
 
 		return $delimit ? static::delimit($value) : $value;
+	}
+
+	/**
+	 * Prepare a string for use as regular expression.
+	 *
+	 * @param  string  $value
+	 * @return string
+	 */
+	protected static function prepareString($value)
+	{
+		return str_replace('.', '\.', $value);
 	}
 
 	/**
@@ -456,7 +476,7 @@ class Route {
 	{
 		$value = static::compileWhereParameters($value, $wheres);
 
-		return preg_replace('/\{([A-Za-z\-\_]+)\}/', static::$wildcard, $value);
+		return preg_replace('/\{([A-Za-z\-\_]+?)\}/', static::$wildcard, $value);
 	}
 
 	/**
@@ -499,9 +519,9 @@ class Route {
 	 */
 	protected static function compileStandardOptional($value, $custom = 0)
 	{
-		$value = preg_replace('/\/\{([A-Za-z\-\_]+)\?\}/', static::$optional, $value, -1, $count);
+		$value = preg_replace('/\/\{([A-Za-z\-\_]+?)\?\}/', static::$optional, $value, -1, $count);
 
-		$value = preg_replace('/^(\{([A-Za-z\-\_]+)\?\})/', static::$leadingOptional, $value, -1, $leading);
+		$value = preg_replace('/^(\{([A-Za-z\-\_]+?)\?\})/', static::$leadingOptional, $value, -1, $leading);
 
 		$total = $leading + $count + $custom;
 
