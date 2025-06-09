@@ -32,7 +32,7 @@ class Application extends Container implements HttpKernelInterface, ResponsePrep
 	 *
 	 * @var string
 	 */
-	const VERSION = '4.0.8';
+	const VERSION = '4.0.9';
 
 	/**
 	 * Indicates if the application has "booted".
@@ -196,13 +196,21 @@ class Application extends Container implements HttpKernelInterface, ResponsePrep
 	}
 
 	/**
-	 * Get the current application environment.
+	 * Get or check the current application environment.
 	 *
+	 * @param  dynamic
 	 * @return string
 	 */
 	public function environment()
 	{
-		return $this['env'];
+		if (count(func_get_args()) > 0)
+		{
+			return in_array($this['env'], func_get_args());
+		}
+		else
+		{
+			return $this['env'];
+		}
 	}
 
 	/**
